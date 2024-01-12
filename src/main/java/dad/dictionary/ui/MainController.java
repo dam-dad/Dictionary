@@ -83,8 +83,10 @@ public class MainController implements Initializable {
     void onSearch(ActionEvent event) {
 
     	// crea una tarea para hacer la búsqueda de la palabra en la API en segundo plano
+    	// ATENCIÓN: se debe crear una tarea nueva cada vez que se pulsa el botón de buscar porque "no se pueden reutilizar las tareas"    	
     	Task<String> task = new Task<String>() {
 			
+    		// en el método "call" implementamos lo que debe hacerse en segundo plano
 			@Override
 			protected String call() throws Exception {
 				
@@ -95,6 +97,11 @@ public class MainController implements Initializable {
 	
 					// usa el servicio de diccionario (API) para buscar la palabra
 					List<Dictionary> wordDefinition = dictionary.getDefinition(word.get());
+					
+					// en caso de que no se haya encontrado la palabra el el diccionario, lanzamos excepción 
+					if (wordDefinition == null || wordDefinition.isEmpty()) {
+						throw new Exception("Word '" + word.get() + "' not found!");
+					}
 					
 					// elige un significado aleatorio de entre todos los devueltos por el diccionario
 					int mean = random.nextInt(0, wordDefinition.get(0).getMeanings().size());
