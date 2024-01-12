@@ -2,6 +2,7 @@ package dad.dictionary.ui;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 public class DictionaryApp extends Application {
@@ -19,6 +20,7 @@ public class DictionaryApp extends Application {
 		
 		primaryStage.setTitle("Dictionary");
 		primaryStage.setScene(new Scene(controller.getView()));
+		primaryStage.getIcons().add(new Image("/images/book.png"));
 		primaryStage.show();		
 		
 	}

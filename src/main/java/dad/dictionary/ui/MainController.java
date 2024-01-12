@@ -7,7 +7,9 @@ import java.util.Random;
 import java.util.ResourceBundle;
 
 import dad.dictionary.api.DictionaryService;
+import dad.dictionary.api.model.Definition;
 import dad.dictionary.api.model.Dictionary;
+import dad.dictionary.api.model.Meaning;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.concurrent.Task;
@@ -24,17 +26,17 @@ import javafx.scene.layout.VBox;
 
 public class MainController implements Initializable {
 	
-	// logic
+	// logic (lógica de negocio)
 	
 	private DictionaryService dictionary = new DictionaryService();
 	private Random random = new Random();
 	
-	// model
+	// model (modelo de datos)
 	
 	private StringProperty word = new SimpleStringProperty();
 	private StringProperty definition = new SimpleStringProperty();
 	
-	// view
+	// view (vista)
 	
     @FXML
     private Label definitionLabel;
@@ -49,7 +51,8 @@ public class MainController implements Initializable {
     private TextField wordText;
 	
 	public MainController() {
-		try { 
+		try {
+			// carga la vista a partri del fichero FXML
 			FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/MainView.fxml"));
 			loader.setController(this);
 			loader.load();
@@ -79,34 +82,67 @@ public class MainController implements Initializable {
     @FXML
     void onSearch(ActionEvent event) {
 
+    	// crea una tarea para hacer la búsqueda de la palabra en la API en segundo plano
     	Task<String> task = new Task<String>() {
 			
 			@Override
 			protected String call() throws Exception {
 				
-				System.out.println("buscando palabra " + word.get());
+				try { 
+				
+					// actualiza el mensaje de la tarea, para indicar que está buscando (feedback de la tarea en segundo plano)
+					updateMessage("Searching ...");
+	
+					// usa el servicio de diccionario (API) para buscar la palabra
+					List<Dictionary> wordDefinition = dictionary.getDefinition(word.get());
+					
+					// elige un significado aleatorio de entre todos los devueltos por el diccionario
+					int mean = random.nextInt(0, wordDefinition.get(0).getMeanings().size());
+					
+					// elige una definición aleatoria dentro del significado
+					int def = random.nextInt(0, wordDefinition.get(0).getMeanings().get(mean).getDefinitions().size());
+					
+					// guarda referencias al significado y a la definición
+					Meaning foundMeaning = wordDefinition.get(0).getMeanings().get(mean);
+					Definition foundDefinition = foundMeaning.getDefinitions().get(def);
+					
+					// actualiza el mensaje de la tarea, para indicar que terminó la búsqueda y se puede volver a buscar
+					updateMessage("Search definition");
 
-				List<Dictionary> wordDefinition = dictionary.getDefinition(word.get());
-				
-				// elige un meaning aleatorio
-				int mean = random.nextInt(0, wordDefinition.get(0).getMeanings().size());
-				// elige una definición aleatoria dentro del meaning
-				int def = random.nextInt(0, wordDefinition.get(0).getMeanings().get(mean).getDefinitions().size());
-				
-				String firstDefinition = wordDefinition.get(0).getMeanings().get(mean).getDefinitions().get(def).getDefinition();
-				
-				return firstDefinition;
+					// devuelve el resultado de la tarea
+					return "[" + foundMeaning.getPartOfSpeech() + "] " + foundDefinition.getDefinition();
+					
+				} catch (Exception e) {
+					
+					// en caso de error, actualizamos el mensaje de la tarea y relanzamos la incidencia para que se dispare el evento "onFailed"
+					updateMessage("Error ocurred ... search again!!");
+					throw e;
+					
+				}
 			}
 			
 		};
-		
-		task.setOnSucceeded(e -> {
-			System.out.println("palabra encontrada " + task.getValue());
-			definition.set(task.getValue());
+
+		// pone un listener al evento "onSchedule" que se dispara justo antes de iniciar la tarea  
+		task.setOnScheduled(e -> {
+			
+			// bindea el texto del botón al mensaje de la tarea (usamos el botón para mostrar el estado de la búsqueda) 
+			searchButton.textProperty().bind(task.messageProperty());
+			
+			// bindea la deshabilitación del botón para que se desactive si la tarea está "running" o la palabra está vacía  
+			searchButton.disableProperty().bind(task.runningProperty().or(word.isEmpty()));
+			
 		});
 		
-		task.setOnFailed(e -> {
-			System.err.println("error en la tarea en segundo plano");
+		// pone un listener al evento "onSucceeded" que se dispara si la tarea termina sin errores
+		task.setOnSucceeded(e -> {
+			
+			definition.set(task.getValue());
+			
+		});
+		
+		// pone un listener al evento "onFailed" que se dispara si la tarea lanza un excepción
+		task.setOnFailed(e -> {			
 			Alert error = new Alert(AlertType.ERROR);
 			error.initOwner(DictionaryApp.primaryStage);
 			error.setTitle("Error");
@@ -115,6 +151,7 @@ public class MainController implements Initializable {
 			error.showAndWait();			
 		});
 		
+		// inicia la tarea dentro de su propio hilo (segundo plano)
 		new Thread(task).start();
     	
     }
