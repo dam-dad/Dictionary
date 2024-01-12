@@ -46,6 +46,8 @@ public class DictionaryService {
 		
 		Response<List<Dictionary>> response = call.execute();
 		
+		Thread.sleep(5000L);
+		
 		return response.body();
 		
 	}

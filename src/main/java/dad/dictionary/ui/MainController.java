@@ -10,6 +10,7 @@ import dad.dictionary.api.DictionaryService;
 import dad.dictionary.api.model.Dictionary;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -78,25 +79,43 @@ public class MainController implements Initializable {
     @FXML
     void onSearch(ActionEvent event) {
 
-    	try {
-			List<Dictionary> wordDefinition = dictionary.getDefinition(word.get());
+    	Task<String> task = new Task<String>() {
 			
-			// elige un meaning aleatorio
-			int mean = random.nextInt(0, wordDefinition.get(0).getMeanings().size());
-			// elige una definición aleatoria dentro del meaning
-			int def = random.nextInt(0, wordDefinition.get(0).getMeanings().get(mean).getDefinitions().size());
+			@Override
+			protected String call() throws Exception {
+				
+				System.out.println("buscando palabra " + word.get());
+
+				List<Dictionary> wordDefinition = dictionary.getDefinition(word.get());
+				
+				// elige un meaning aleatorio
+				int mean = random.nextInt(0, wordDefinition.get(0).getMeanings().size());
+				// elige una definición aleatoria dentro del meaning
+				int def = random.nextInt(0, wordDefinition.get(0).getMeanings().get(mean).getDefinitions().size());
+				
+				String firstDefinition = wordDefinition.get(0).getMeanings().get(mean).getDefinitions().get(def).getDefinition();
+				
+				return firstDefinition;
+			}
 			
-			String firstDefinition = wordDefinition.get(0).getMeanings().get(mean).getDefinitions().get(def).getDefinition();
-			definition.set(firstDefinition);
-			
-		} catch (Exception e) {
+		};
+		
+		task.setOnSucceeded(e -> {
+			System.out.println("palabra encontrada " + task.getValue());
+			definition.set(task.getValue());
+		});
+		
+		task.setOnFailed(e -> {
+			System.err.println("error en la tarea en segundo plano");
 			Alert error = new Alert(AlertType.ERROR);
 			error.initOwner(DictionaryApp.primaryStage);
 			error.setTitle("Error");
 			error.setHeaderText("Error searching in dictionary");
-			error.setContentText(e.getMessage());
-			error.showAndWait();
-		}
+			error.setContentText(task.getException().getMessage());
+			error.showAndWait();			
+		});
+		
+		new Thread(task).start();
     	
     }
 	
